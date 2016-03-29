@@ -26,7 +26,7 @@ public sealed class ExceptionBasedParser {
 }
 
 public static class ExceptionBasedParserExtensions {
-    
+
     // expr
     //   : additive-expr
     // 
@@ -43,7 +43,7 @@ public static class ExceptionBasedParserExtensions {
     // expr
     //   : additive-expr
     public static Expr Expr(this ExceptionBasedParser _) {
-        return _.AdditiveExpr();
+        return _.AdditiveExprRecursive();
     }
 
     public static IntExpr IntExpr(this ExceptionBasedParser _) {
@@ -57,7 +57,7 @@ public static class ExceptionBasedParserExtensions {
         return new IntExpr(token.Val);
     }
 
-    public static void Operator<Op>(this ExceptionBasedParser _) where Op : Token {
+    public static void Operator<Op>(this ExceptionBasedParser _) where Op : OpToken {
         var token = _.Tokens[_.Pos] as Op;
 
         if (token == null) {
@@ -70,14 +70,14 @@ public static class ExceptionBasedParserExtensions {
     // '(' additive-expr ')'
     public static Expr ParenEnclosedExpr(this ExceptionBasedParser _) {
         _.Operator<LeftParenToken>();
-        var expr = _.AdditiveExpr();
+        var expr = _.AdditiveExprRecursive();
         _.Operator<RightParenToken>();
         return expr;
     }
 
     // unary-expr
-    //   : int-expr
-    //   | paren-enclosed-expr
+    //   : paren-enclosed-expr
+    //   | int-expr
     public static Expr UnaryExpr(this ExceptionBasedParser _) {
         var pos = _.Pos;
 
@@ -89,7 +89,7 @@ public static class ExceptionBasedParserExtensions {
     }
 
     // multiplicative-expr
-    //   : unary-expr [ * unary-expr ]*
+    //   : unary-expr [[ '*' unary-expr ] | [ '/' unary-expr ]]*
     public static Expr MultiplicativeExpr(this ExceptionBasedParser _) {
         var left = _.UnaryExpr();
 
@@ -99,33 +99,22 @@ public static class ExceptionBasedParserExtensions {
                 _.Operator<MultToken>();
                 var right = _.UnaryExpr();
                 left = new MultExpr(left, right);
-            } catch {
-                _.Pos = pos;
-                return left;
-            }
-        }
-    }
+                continue;
+            } catch { _.Pos = pos; }
 
-    // additive-expr
-    //   : multiplicative-expr [ + multiplicative-expr ]*
-    public static Expr AdditiveExpr(this ExceptionBasedParser _) {
-        var left = _.MultiplicativeExpr();
-
-        for (;;) {
-            var pos = _.Pos;
             try {
-                _.Operator<AddToken>();
-                var right = _.MultiplicativeExpr();
-                left = new AddExpr(left, right);
-            } catch {
-                _.Pos = pos;
-                return left;
-            }
+                _.Operator<DivToken>();
+                var right = _.UnaryExpr();
+                left = new DivExpr(left, right);
+                continue;
+            } catch { _.Pos = pos; }
+
+            return left;
         }
     }
 
     // additive-expr
-    //   : multiplicative-expr [ + additive-expr ]?
+    //   : multiplicative-expr [[ '+' additive-expr ] | [ '-' additive-expr ]]?
     public static Expr AdditiveExprRecursive(this ExceptionBasedParser _) {
         var left = _.MultiplicativeExpr();
 
@@ -134,10 +123,15 @@ public static class ExceptionBasedParserExtensions {
             _.Operator<AddToken>();
             var right = _.AdditiveExprRecursive();
             return new AddExpr(left, right);
-        } catch {
-            _.Pos = pos;
-            return left;
-        }
+        } catch { _.Pos = pos; }
+
+        try {
+            _.Operator<SubToken>();
+            var right = _.AdditiveExprRecursive();
+            return new SubExpr(left, right);
+        } catch { _.Pos = pos; }
+
+        return left;
     }
 
 }
