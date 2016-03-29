@@ -31,14 +31,14 @@ public static class ExceptionBasedParserExtensions {
     //   : additive-expr
     // 
     // additive-expr
-    //   : multiplicative-expr [ + multiplicative-expr ]*
+    //   : multiplicative-expr [[ '+' additive-expr ] | [ '-' additive-expr ]]?
     // 
     // multiplicative-expr
-    //   : unary-expr [ * unary-expr ]*
+    //   : unary-expr [[ '*' unary-expr ] | [ '/' unary-expr ]]*
     // 
     // unary-expr
+    //   : ( additive-expr )
     //   : int-expr
-    //   | ( additive-expr )
 
     // expr
     //   : additive-expr
